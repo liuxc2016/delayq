@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	STATE_DELAY   = 0
-	STATE_READY   = 1
-	STATE_RESERVE = 2
-	STATE_DELETE  = 3
+	STATE_DELAY = iota
+	STATE_READY
+	STATE_RESERVE
+	STATE_DELETE
 )
 
 type DelayQ struct {
@@ -119,9 +119,4 @@ func (dq *DelayQ) Scanjob() {
 			CheckJobList()
 		}
 	}
-}
-
-//定时取出ready job以供消费,给job打上reserved状态
-func (dq *DelayQ) doJob() {
-
 }

@@ -143,9 +143,29 @@ func CheckJobList() (string, error) {
 * 完成一个job
  */
 func FinishJob(jobid string) (string, error) {
-	redis_cli = dq.pool.Get()
+	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
-
+	fmt.Println(jobid, "任务已经结束")
+	rk, err := redis.Strings(redis_cli.Do("hmget", joblist_key_prefix+jobid, "jobid", "name", "topic", "data", "addtime", "exectime", "ttr", "state"))
+	if err != nil {
+		return "", err
+	}
+	job := &Job{
+		jobid:    rk[0],
+		name:     rk[1],
+		topic:    rk[2],
+		data:     rk[3],
+		addtime:  utils.String2int64(rk[4]),
+		exectime: utils.String2int64(rk[5]),
+		ttr:      utils.String2int64(rk[6]),
+		state:    utils.String2int(rk[7]),
+	}
+	_, err = redis_cli.Do("hmset", joblist_key_prefix+job.jobid, "state", STATE_DELETE)
+	if err != nil {
+		fmt.Println("delete job faild failed:", err)
+		return "", err
+	}
+	return "", nil
 }
 
 /*
@@ -154,7 +174,6 @@ func FinishJob(jobid string) (string, error) {
 func ConsumerJob(jobid string) (string, error) {
 	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
-
 	rk, err := redis.Strings(redis_cli.Do("hmget", joblist_key_prefix+jobid, "jobid", "name", "topic", "data", "addtime", "exectime", "ttr", "state"))
 	if err != nil {
 		return "", err
@@ -174,7 +193,7 @@ func ConsumerJob(jobid string) (string, error) {
 		fmt.Println("redis set failed:", err)
 		return "", err
 	}
-	index, err1 := redis_cli.Do("LREM", joblist_ready_pool_key, 0, job.jobid)
+	_, err1 := redis_cli.Do("LREM", joblist_ready_pool_key, 0, job.jobid)
 	if err1 != nil {
 		fmt.Println("redis rem failed:", err)
 		return "", errors.New("index fail!")
