@@ -92,6 +92,8 @@ func (dq *DelayQ) InitDq() {
 func (dq *DelayQ) Start() {
 	go dq.Scanjob()
 	//从redis中读取joblist
+	go dq.Subjob()
+
 }
 
 //结束
@@ -114,6 +116,26 @@ func (dq *DelayQ) Scanjob() {
 		select {
 		case <-dq.scanClose:
 			return
+		case <-tick.C:
+			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
+			CheckJobList()
+		}
+	}
+}
+
+/*
+* 订阅一个topic
+ */
+func (dq *DelayQ) Subjob() {
+
+	redis_cli := dq.pool.Get()
+	defer redis_cli.Close()
+
+	fmt.Println("订阅一个topic, testtopic3!")
+
+	tick := time.NewTicker(time.Second)
+	for {
+		select {
 		case <-tick.C:
 			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
 			CheckJobList()

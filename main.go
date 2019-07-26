@@ -30,6 +30,12 @@ func main() {
 		dq.Start()
 		//ret, err1 := delayq.AddJob("jobs1", "工作1", "testtopic1", "{info:1}", time.Now().Unix())
 		//ret, err1 = delayq.AddJob("jobs2", "工作2", "testtopic1", "{info:2}", time.Now().Unix()+600)
+
+		time.AfterFunc(4, func() {
+			fmt.Println("i m after func!")
+			_, _ = delayq.AddJob("jobs3", "工作3", "testtopic3", "{info:3}", time.Now().Unix()+4)
+		})
+
 		// if err1 != nil {
 		// 	fmt.Println(ret, err1)
 		// }
