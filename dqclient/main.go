@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"../delayq"
 	"./dqclient"
 )
 
@@ -24,7 +26,23 @@ func main() {
 
 	dqclient := &dqclient.DqClient{}
 	dqclient.InitClient()
-	ret, err := dqclient.Brpop("testtopic1", 10)
-	fmt.Println(ret, err)
+	ret, err := dqclient.Pop("testtopic3")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		job := delayq.Job{}
+		err := json.Unmarshal([]byte(ret), &job)
+		if err != nil {
+			fmt.Println("解析失败", err)
+		} else {
+			fmt.Println("解析成功", ret)
+		}
+	}
 
+	ret, err = dqclient.Remove("jobs3")
+	if err != nil {
+		fmt.Println("删除任务失败", err)
+	} else {
+		fmt.Println("删除任务成功", ret)
+	}
 }

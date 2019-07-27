@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"../delayq"
+	"../utils"
 )
 
 const (
@@ -16,8 +17,12 @@ const (
 
 // 命令类
 type Cmd struct {
-	dq   *delayq.DelayQ
-	exit chan bool
+	dq     *delayq.DelayQ
+	exit   chan bool
+	conf   string /*如果命令行传入配置文件*/
+	daemon bool   /*是否为后台模式*/
+	Config utils.Config
+	logger utils.Logger
 }
 
 // 执行
@@ -31,6 +36,13 @@ func (p *Cmd) Run() {
 	// 实例化公共组件
 
 	p.handleSignal()
+	fmt.Println(p.conf)
+	p.Config = utils.LoadConfig(p.conf)
+	fmt.Println(p.Config.Delayq)
+	os.Exit(0)
+	p.dq = delayq.New()
+	p.dq.InitDq()
+	p.dq.Start()
 }
 
 // 欢迎信息
@@ -57,42 +69,39 @@ func (p *Cmd) handleSignal() {
 		switch sig {
 		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 			fmt.Println("捕捉到了信号", sig)
+			os.Exit(0)
 			p.handleSignal()
 		}
 	}()
 }
 
 // 参数处理
-func (p *Cmd) handleFlags() (bool, string) {
+func (p *Cmd) handleFlags() {
 	// 参数解析
 	flagD := flag.Bool("d", false, "")
-	flagDaemon := flag.Bool("daemon", false, "")
+
 	flagH := flag.Bool("h", false, "")
-	flagHelp := flag.Bool("help", false, "")
+
 	flagV := flag.Bool("v", false, "")
-	flagVersion := flag.Bool("version", false, "")
+
 	flagC := flag.String("c", "", "")
-	flagConfiguration := flag.String("configuration", "", "")
+
 	flag.Parse()
 	// 参数取值
-	daemon := *flagD || *flagDaemon
-	help := *flagH || *flagHelp
-	version := *flagV || *flagVersion
-	configuration := ""
-	if *flagC == "" {
-		configuration = *flagConfiguration
-	} else {
-		configuration = *flagC
-	}
+	p.daemon = *flagD
+	help := *flagH
+	version := *flagV
+	p.conf = *flagC
 	// 打印型命令处理
 	if help {
 		printHelp()
 	}
 	if version {
 		printVersion()
+
 	}
 	// 返回参数值
-	return daemon, configuration
+	return
 }
 
 // 打印帮助

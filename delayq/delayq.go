@@ -39,16 +39,6 @@ func New() *DelayQ {
 	return dq
 }
 
-func (*DelayQ) InitConf() error {
-	dq.cfg, err = ini.Load("conf/delayq.conf")
-	if err != nil {
-		return err
-	}
-	pid := dq.cfg.Section("delayq").Key("pid").String()
-	fmt.Println(pid)
-	return nil
-}
-
 func (dq *DelayQ) InitRedis() error {
 	dq.redis_prefix = "delayq:"
 	redis_host := "47.244.135.251:6379"
@@ -77,10 +67,6 @@ func (dq *DelayQ) InitRedis() error {
 }
 
 func (dq *DelayQ) InitDq() {
-	err = dq.InitConf()
-	if err != nil {
-		panic(err)
-	}
 	err = dq.InitRedis()
 	if err != nil {
 		panic(err)
@@ -90,10 +76,8 @@ func (dq *DelayQ) InitDq() {
 
 //启动
 func (dq *DelayQ) Start() {
-	go dq.Scanjob()
-	//从redis中读取joblist
-	go dq.Subjob()
-
+	//
+	go dq.Scan()
 }
 
 //结束
@@ -103,11 +87,11 @@ func (dq *DelayQ) Stop() {
 }
 
 //扫描JobList,每秒执行一次，
-//将ready态的任务丢到ready pool
-//检查reserved任务，
-//是否有超时的或是执行失败的,检查任务是第几次执行，
-//是否有消费成功的，消费成功的，移入finishedJobList，是否有notify_url?
-func (dq *DelayQ) Scanjob() {
+//1.扫瞄delay bucket
+//2.扫瞄ready list?
+//是否有执行超时的，或是执行失败的,检查任务是第几次执行，
+//xx--delete--xx是否有消费成功的，消费成功的，移入finishedJobList，（是否有notify_url，由dqclient来处理这个）
+func (dq *DelayQ) Scan() {
 	defer func() {
 		fmt.Println("任务池扫瞄结束!")
 	}()
@@ -118,7 +102,8 @@ func (dq *DelayQ) Scanjob() {
 			return
 		case <-tick.C:
 			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
-			CheckJobList()
+			ScanDelayBucket() //扫描delay bucket中的jobid ，到期的丢入ready pool
+			ScanReadyJobs()   //扫描ready list
 		}
 	}
 }
@@ -126,7 +111,7 @@ func (dq *DelayQ) Scanjob() {
 /*
 * 订阅一个topic
  */
-func (dq *DelayQ) Subjob() {
+func (dq *DelayQ) Subjob2() {
 
 	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
@@ -138,7 +123,6 @@ func (dq *DelayQ) Subjob() {
 		select {
 		case <-tick.C:
 			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
-			CheckJobList()
 		}
 	}
 }
