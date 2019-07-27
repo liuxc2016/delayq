@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/astaxie/beego/utils"
-
 	"../../delayq"
 	"../../utils"
 
