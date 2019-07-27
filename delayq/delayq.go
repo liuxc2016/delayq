@@ -41,6 +41,7 @@ func New(conf *utils.Config, loger *utils.Logger) *DelayQ {
 		}
 		err = dq.InitRedis()
 		if err != nil {
+			dq.logger.Error(err)
 			panic(err)
 		}
 		dq.scanClose = make(chan bool)
@@ -49,7 +50,6 @@ func New(conf *utils.Config, loger *utils.Logger) *DelayQ {
 }
 
 func (dq *DelayQ) InitRedis() error {
-	dq.redis_prefix = "delayq:"
 	redis_host := dq.config.Redis.Host
 	redis_port := dq.config.Redis.Port
 	redis_pass := dq.config.Redis.Password
@@ -96,16 +96,25 @@ func (dq *DelayQ) Stop() {
 func (dq *DelayQ) Timer() {
 	defer func() {
 		fmt.Println("任务池扫瞄结束!")
+		dq.logger.Println("任务池扫瞄结束!")
 	}()
 	tick := time.NewTicker(time.Second)
 	for {
 		select {
 		case <-dq.scanClose:
+			fmt.Println("DelayQ收到停止信号，扫瞄中止")
+			dq.logger.Println("DelayQ收到停止信号，扫瞄中止")
 			return
 		case <-tick.C:
 			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
-			ScanDelayBucket() //扫描delay bucket中的jobid ，到期的丢入ready pool
-			ScanReadyJobs()   //扫描ready list
+			str, err := ScanDelayBucket() //扫描delay bucket中的jobid ，到期的丢入ready pool
+			if err != nil {
+				dq.logger.Println("扫描delay bucket出错" + err.Error() + str)
+			}
+			str, err = ScanReadyJobs() //扫描ready list
+			if err != nil {
+				dq.logger.Println("扫描ready pool出错" + err.Error() + str)
+			}
 		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"../delayq"
 	"../utils"
@@ -22,7 +23,7 @@ type Cmd struct {
 	conf   string /*如果命令行传入配置文件*/
 	daemon bool   /*是否为后台模式*/
 	Config utils.Config
-	logger utils.Logger
+	logger *utils.Logger
 }
 
 // 执行
@@ -38,7 +39,8 @@ func (p *Cmd) Run() {
 	p.handleSignal()
 
 	p.Config = utils.LoadConfig(p.conf)
-	p.dq = delayq.New(&p.Config, &p.logger)
+	p.logger = utils.LogNew(p.Config.Delayq.AccessLog, p.Config.Delayq.ErrorLog)
+	p.dq = delayq.New(&p.Config, p.logger)
 
 	p.dq.Run()
 }
@@ -67,8 +69,9 @@ func (p *Cmd) handleSignal() {
 		switch sig {
 		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 			fmt.Println("捕捉到了信号", sig)
+			p.dq.Stop()
+			time.Sleep(5 * time.Second)
 			os.Exit(0)
-			p.handleSignal()
 		}
 	}()
 }
@@ -107,10 +110,10 @@ func printHelp() {
 	fmt.Println("Usage: delayer [options]")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("-d/--daemon run in the background")
-	fmt.Println("-c/--configuration FILENAME -- configuration file path (searches if not given)")
-	fmt.Println("-h/--help -- print this usage message and exit")
-	fmt.Println("-v/--version -- print version number and exit")
+	fmt.Println("-d run in the background")
+	fmt.Println("-c FILENAME -- configuration file path (searches if not given)")
+	fmt.Println("-h -- print this usage message and exit")
+	fmt.Println("-v -- print version number and exit")
 	fmt.Println()
 	os.Exit(0)
 }

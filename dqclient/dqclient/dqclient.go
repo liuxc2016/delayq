@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/astaxie/beego/utils"
+
 	"../../delayq"
 	"../../utils"
 
@@ -16,6 +18,7 @@ import (
 type DqClient struct {
 	cfg          *ini.File
 	pool         *redis.Pool
+	logger       *utils.Logger
 	redis_prefix string
 	scanClose    chan bool /*是否结束对joblist的扫描*/
 }

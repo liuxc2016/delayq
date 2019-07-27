@@ -104,9 +104,8 @@ func ScanDelayBucket() (string, error) {
 	}
 	if len(job_keys) <= 0 {
 		fmt.Println("delaybucket 为空,本轮扫描结束")
+		dq.logger.Println("delaybucket 为空,本轮扫描结束")
 		return "", nil
-	} else {
-		fmt.Println("delaybucket 不为空", job_keys)
 	}
 	for _, v := range job_keys {
 		rk, err := redis.StringMap(redis_cli.Do("HGETALL", GetJobKey(v)))
@@ -154,7 +153,7 @@ func ScanDelayBucket() (string, error) {
 			}
 
 		} else {
-			fmt.Println("hmget err", err)
+			fmt.Println("获取任务状态失败hmget err", err)
 			return "", errors.New(v + "获取任务状态失败")
 		}
 	}
@@ -172,6 +171,8 @@ func ScanReadyJobs() (string, error) {
 	fmt.Println("scan ready jobs!")
 	ready_topics, err := redis.Strings(redis_cli.Do("KEYS", READY_POOL_KEY_PREFIX+"*"))
 	fmt.Println("ready topics", ready_topics)
+	dq.logger.Println("扫描ready topics:", ready_topics)
+
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +210,8 @@ func ScanReadyJobs() (string, error) {
 
 				elapse := nowtime - job.Exectime
 				if elapse > job.Ttr {
-					fmt.Println(job.Jobid, "任务在ready态超时了， 100秒以后重新执行")
+					fmt.Println(job.Jobid, "任务在ready态超时了， ", job.Ttr, "秒以后重新执行")
+					dq.logger.Println(job.Jobid, "任务在ready态超时了， ", job.Ttr, "秒以后重新执行")
 					job.Exectime = nowtime + job.Ttr
 					job.Tryes += 1
 
@@ -234,10 +236,12 @@ func ScanReadyJobs() (string, error) {
 						fmt.Println("移出失败", err)
 						return "", errors.New(job.Jobid + "此任务超时，移出ready池失败！")
 					} else {
+						dq.logger.Println(job.Jobid, "任务已被移出", GetRedayPoolKey(job.Topic))
 						fmt.Println("移出", GetRedayPoolKey(job.Topic), job.Jobid)
 					}
 					fmt.Println(GetRedayPoolKey(job.Topic))
 				} else {
+					dq.logger.Error(job.Jobid, "正在等待消费， 已超过预计时间", elapse)
 					fmt.Println(job.Jobid, "正在等待消费， 已超过预计时间", elapse)
 				}
 
@@ -256,6 +260,7 @@ func ScanReadyJobs() (string, error) {
 func ScanReserveJobs() (string, error) {
 	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
+
 	job_keys, err := redis.Strings(redis_cli.Do("lrange", RESERVE_BUCKET_KEY, 0, -1))
 
 	if err != nil {
@@ -263,8 +268,6 @@ func ScanReserveJobs() (string, error) {
 	}
 	if len(job_keys) <= 0 {
 		return "", nil
-	} else {
-		panic(job_keys)
 	}
 	for _, v := range job_keys {
 		rk, err := redis.StringMap(redis_cli.Do("HGETALL", GetJobKey(v)))
