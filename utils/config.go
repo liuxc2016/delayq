@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"fmt"
-
 	"gopkg.in/ini.v1"
 )
 
@@ -33,14 +31,15 @@ func LoadConfig(conf_file string) Config {
 	if conf_file == "" {
 		conf_file = "./conf/delayq.conf"
 	}
+
 	conf, err := ini.Load(conf_file)
 	if err != nil {
 		panic("读取配置文件失败" + conf_file)
 	}
+
 	// 提取数据
-	delayer := conf.Section("delayer")
+	delayer := conf.Section("delayq")
 	pidFile := delayer.Key("pid_file").String()
-	fmt.Println("pidFile", pidFile)
 	timerInterval, _ := delayer.Key("timer_interval").Int64()
 	accessLog := delayer.Key("access_log").String()
 	errorLog := delayer.Key("error_log").String()

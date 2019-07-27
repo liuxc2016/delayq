@@ -36,13 +36,11 @@ func (p *Cmd) Run() {
 	// 实例化公共组件
 
 	p.handleSignal()
-	fmt.Println(p.conf)
+
 	p.Config = utils.LoadConfig(p.conf)
-	fmt.Println(p.Config.Delayq)
-	os.Exit(0)
-	p.dq = delayq.New()
-	p.dq.InitDq()
-	p.dq.Start()
+	p.dq = delayq.New(&p.Config, &p.logger)
+
+	p.dq.Run()
 }
 
 // 欢迎信息
