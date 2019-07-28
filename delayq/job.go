@@ -47,7 +47,16 @@ func GetJobKey(jobid string) string {
 	return JOBLIST_KEY_PREFIX + jobid
 }
 
-func AddJob(jobid string, name string, topic string, data string, exectime int64) (string, error) {
+func AddJob(jobid string, name string, topic string, data string, exectime int64, ttr int64) (string, error) {
+	if ttr <= 0 {
+		ttr = 20
+	}
+	if jobid == "" || topic == "" {
+		return "", errors.New(jobid + topic + "jobid, topic 必须填写！")
+	}
+	if exectime == 0 {
+		exectime = time.Now().Unix() + 1 //如果传入的执行时间为0，表示立即执行
+	}
 	job := &Job{
 		Jobid:    jobid,
 		Name:     name,
@@ -56,7 +65,7 @@ func AddJob(jobid string, name string, topic string, data string, exectime int64
 		Exectime: exectime,
 		Addtime:  time.Now().Unix(),
 		Tryes:    0,
-		Ttr:      30,
+		Ttr:      ttr,
 		State:    STATE_DELAY,
 	}
 	redis_cli := dq.pool.Get()
