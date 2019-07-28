@@ -38,11 +38,11 @@ func LoadConfig(conf_file string) Config {
 	}
 
 	// 提取数据
-	delayer := conf.Section("delayq")
-	pidFile := delayer.Key("pid_file").String()
-	timerInterval, _ := delayer.Key("timer_interval").Int64()
-	accessLog := delayer.Key("access_log").String()
-	errorLog := delayer.Key("error_log").String()
+	delayq := conf.Section("delayq")
+	pidFile := delayq.Key("pid_file").String()
+	timerInterval, _ := delayq.Key("timer_interval").Int64()
+	accessLog := delayq.Key("access_log").String()
+	errorLog := delayq.Key("error_log").String()
 	redis := conf.Section("redis")
 	host := redis.Key("host").String()
 	port := redis.Key("port").String()

@@ -1,9 +1,8 @@
-# Delayer
+# DelayQ
 
-基于 Redis 的延迟消息队列中间件，采用 Golang 开发，支持 PHP、Golang 等多种语言客户端。
-
-参考 [有赞延迟队列设计](http://tech.youzan.com/queuing_delay) 中的部分设计，优化后实现。
-参考 [Delayer](https://github.com/mix-basic/delayer) 中的很多设计，优化后实现。
+- 基于 Redis 的延迟消息队列中间件，采用 Golang 开发，支持 PHP、Golang 等多种语言客户端。
+- 参考 [有赞延迟队列设计](http://tech.youzan.com/queuing_delay) 中的部分设计，优化后实现。
+- 参考 [delayq](https://github.com/mix-basic/delayq) 中的很多设计，优化后实现。
 
 ## 应用场景
 
@@ -48,10 +47,10 @@
 go run delayq/main.go
 > 支持 windows、linux、mac 三种平台
 
-配置文件 `conf/delayer.conf`：
+配置文件 `conf/delayq.conf`：
 ```
-[delayer]
-pid = /var/run/delayer.pid      ; 需单例执行时配置, 多实例执行时留空, Win不支持单例
+[delayq]
+pid = /var/run/delayq.pid      ; 需单例执行时配置, 多实例执行时留空, Win不支持单例
 timer_interval = 1000           ; 计算间隔时间, 单位毫秒
 access_log = logs/access.log    ; 存取日志
 error_log = logs/error.log      ; 错误日志
@@ -70,8 +69,8 @@ conn_max_lifetime = 3600        ; 连接最大生存时间, 单位秒
 查看帮助：
 
 ```
-[root@localhost bin]# ./delayer -h
-Usage: delayer [options]
+[root@localhost bin]# ./delayq -h
+Usage: delayq [options]
 
 Options:
 -d/ run in the background
