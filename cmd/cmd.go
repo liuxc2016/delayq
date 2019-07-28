@@ -18,18 +18,18 @@ const (
 
 // 命令类
 type Cmd struct {
-	dq     *delayq.DelayQ
-	exit   chan bool
-	conf   string /*如果命令行传入配置文件*/
-	daemon bool   /*是否为后台模式*/
-	Config utils.Config
-	logger *utils.Logger
+	dq       *delayq.DelayQ
+	exitChan chan bool
+	conf     string /*如果命令行传入配置文件*/
+	daemon   bool   /*是否为后台模式*/
+	Config   utils.Config
+	logger   *utils.Logger
 }
 
 // 执行
 func (p *Cmd) Run() {
 	// 命令行参数处理
-	p.exit = make(chan bool)
+	p.exitChan = make(chan bool)
 	// 欢迎
 	welcome()
 
@@ -43,6 +43,13 @@ func (p *Cmd) Run() {
 	p.dq = delayq.New(&p.Config, p.logger)
 
 	p.dq.Run()
+
+	for {
+		select {
+		case <-p.exitChan:
+			return
+		}
+	}
 }
 
 // 欢迎信息

@@ -9,13 +9,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-const (
-	STATE_DELAY = iota
-	STATE_READY
-	STATE_RESERVE
-	STATE_DELETE
-)
-
 type DelayQ struct {
 	config       *utils.Config
 	logger       *utils.Logger

@@ -10,14 +10,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-const (
-	READY_POOL_KEY_PREFIX string = "dqready:"
-	JOBLIST_KEY_PREFIX    string = "dqjobs:"
-
-	DELAY_BUCKET_KEY   string = "dqbucket"   //zset
-	RESERVE_BUCKET_KEY string = "dqreserved" //zset
-)
-
 var (
 	joblist_key string
 )

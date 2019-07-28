@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"os"
+	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -31,7 +32,8 @@ func LogNew(access_file string, error_file string) (logger *Logger) {
 
 	af, err := os.OpenFile(access_file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		panic("打开访问日志文件失败")
+		abs_af, _ := filepath.Abs(access_file)
+		panic("打开访问日志文件失败" + abs_af)
 	}
 	ao := &logFileWriter{
 		file: af,
@@ -42,7 +44,8 @@ func LogNew(access_file string, error_file string) (logger *Logger) {
 
 	ef, err1 := os.OpenFile(error_file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err1 != nil {
-		panic("打开访问日志文件失败")
+		abs_ef, _ := filepath.Abs(error_file)
+		panic("打开访问日志文件失败" + abs_ef)
 	}
 	eo := &logFileWriter{
 		file: ef,

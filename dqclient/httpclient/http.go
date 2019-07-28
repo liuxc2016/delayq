@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"../dqclient"
 )
@@ -19,7 +20,9 @@ var (
 )
 
 type Http struct {
-	Dqclient *dqclient.DqClient
+	Dqclient     *dqclient.DqClient
+	Srv          *http.Server
+	ExitHttpChan chan bool
 }
 
 //{‘command’:’add’, ’topic’:’xxx’, ‘id’: ‘xxx’, ‘delay’: 30, ’TTR’: 60, ‘body’:‘xxx'}
@@ -196,27 +199,48 @@ func (p *Http) ping(w http.ResponseWriter, r *http.Request) {
 	ret1, err1 := p.Dqclient.Ping()
 
 	if err1 != nil {
-		ret = RetJson("1", "当前状态出错！"+err1.Error(), ret1)
+		ret = RetJson("1", time.Now().Format("2006-01-02 15:04:05")+"当前状态出错！"+err1.Error(), ret1)
 	} else {
-		ret = RetJson("0", "当前状态正常！", ret1)
+		ret = RetJson("0", time.Now().Format("2006-01-02 15:04:05")+"当前状态正常！", ret1)
 	}
 
 	fmt.Fprintf(w, ret)
 }
 
-func (p *Http) Serve() {
-	http.HandleFunc("/", p.sayHelloName)
+func (p *Http) Stop() {
+	p.ExitHttpChan <- true
+}
 
+func (p *Http) Serve() {
+
+	p.ExitHttpChan = make(chan bool, 1)
+
+	http.HandleFunc("/", p.sayHelloName)
 	http.HandleFunc("/delayq/ping", p.ping)
 
 	http.HandleFunc("/delayq/job/info", p.getJobInfo)
 	http.HandleFunc("/delayq/job/add", p.addJob)
 	http.HandleFunc("/delayq/job/pop", p.popJob)
 	http.HandleFunc("/delayq/job/finish", p.finishJob)
+
 	port := "9090"
-	err := http.ListenAndServe(":"+port, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
+	p.Srv = &http.Server{Addr: ":" + port, Handler: http.DefaultServeMux}
+
 	fmt.Println("Http Server is Starting on port ", port)
+
+	go func() {
+		err := p.Srv.ListenAndServe()
+		if err != nil {
+			log.Println("ListenAndServe: ", err)
+		}
+	}()
+
+	go func() {
+		<-p.ExitHttpChan
+		p.Srv.Close()
+		fmt.Println("http服务器收到退出信息, 已退出")
+	}()
+
+	time.Sleep(time.Second * 100)
+
 }

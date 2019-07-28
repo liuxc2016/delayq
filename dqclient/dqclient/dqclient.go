@@ -18,14 +18,40 @@ type DqClient struct {
 	pool         *redis.Pool
 	logger       *utils.Logger
 	redis_prefix string
-	scanClose    chan bool /*是否结束对joblist的扫描*/
+	consumClose  chan bool /*是否结束对jobs的消费*/
 }
 
 var (
 	err error
 )
 
+func (dqcli *DqClient) Run() {
+	defer func() {
+		fmt.Println("消费线程结束!")
+		dqcli.logger.Println("消费线程结束!")
+	}()
+	tick := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-dqcli.consumClose:
+			fmt.Println("DelayQ收到消费线程结束，中止")
+			dqcli.logger.Println("DelayQ收到消费线程结束停止信号，扫瞄中止")
+			return
+		case <-tick.C:
+			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
+			/*取出任务用来消费*/
+		}
+	}
+}
+
+func (dqcli *DqClient) Stop() {
+	fmt.Println("dqclient收到停止信号，结束消费")
+	dqcli.consumClose <- true
+
+}
+
 func (dqcli *DqClient) InitClient() error {
+	dqcli.consumClose = make(chan bool, 1)
 	redis_host := "47.244.135.251:6379"
 	redis_pass := "123456"
 
@@ -63,15 +89,8 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 	}
 	jobid, err := redis.String(redis_cli.Do("RPOP", delayq.GetRedayPoolKey(topic)))
 	if err != nil {
-
-		if err == redis.ErrNil {
-			//没明当前topic不存在ready的job
-			return "", nil
-		} else {
-			fmt.Println("rpop返回出错")
-			return "", err
-		}
-
+		//if err == redis.ErrNil {
+		return "", err
 	} else {
 		fmt.Println("从ready池中获取到jobid", jobid)
 	}
@@ -109,6 +128,7 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 	}
 
 	json_ret, _ := json.Marshal(job)
+	fmt.Println("本次pop返回,", json_ret)
 	return string(json_ret), nil
 }
 
