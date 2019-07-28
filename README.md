@@ -83,16 +83,27 @@ Options:
 启动：
 
 ```
-[root@localhost bin]# ./delayeq
-    ____       __
-   / __ \___  / /___ ___  _____  _____
-  / / / / _ \/ / __ `/ / / / _ \/ ___/
- / /_/ /  __/ / /_/ / /_/ /  __/ /
-/_____/\___/_/\__,_/\__, /\___/_/
-                   /____/
-Service:		delayer
-Version:		1.0.1
-[info] 2018/10/21 11:24:24 Service started successfully, PID: 31023
+D:\goworks\delayq>go run main.go
+
+_____   _____   _           ___  __    __  _____
+|  _  \ | ____| | |         /   | \ \  / / /  _  \
+| | | | | |__   | |        / /| |  \ \/ /  | | | |
+| | | | |  __|  | |       / / | |   \  /   | | | |
+| |_| | | |___  | |___   / /  | |   / /    | |_| |_
+|_____/ |_____| |_____| /_/   |_|  /_/     \_______|
+
+Service:                delayq
+Version:                1.0.0 test
+当前循环时间 2019-07-28 23:03:36
+delaybucket 为空,本轮扫描结束
+scan ready jobs!
+ready topics [dqready:top1]
+ready job_keys [job1_2 top1_1]
+job1_2 正在等待消费， 已超过预计时间 80
+捕捉到了信号 interrupt
+top1_1 正在等待消费， 已超过预计时间 81
+DelayQ收到停止信号，扫瞄中止
+任务池扫瞄结束!
 ```
 
 ## 客户端
