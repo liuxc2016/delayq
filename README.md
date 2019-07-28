@@ -116,9 +116,10 @@ go orun dqclient.go
 ```
 
 ### 日志
-. 使用logrus构架日志，默认存放在<code>logs/</code>文件夹下
-. delayq后端使用日志logs/access.log, 错误日志logs/error.log
-. delayq消费端使用日志 logs/topic_access.log, 错误日志logs/topic_error.log
+
+- 使用logrus构架日志，默认存放在<code>logs/</code>文件夹下
+- delayq后端使用日志logs/access.log, 错误日志logs/error.log
+- delayq消费端使用日志 logs/topic_access.log, 错误日志logs/topic_error.log
 
 ## 尚未完成
 
@@ -128,6 +129,8 @@ go orun dqclient.go
 4. 提供成功消费任务的redis finish pool
 5. 提供可视化的后台方面显示的joblist 信息
 6. 日志的按日分割
+
+7. 将delayq后台 与delayqclient 目录优化，更好的实现隔离性
 
 ## License
 
