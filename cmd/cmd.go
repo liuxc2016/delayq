@@ -114,7 +114,7 @@ func (p *Cmd) handleFlags() {
 
 // 打印帮助
 func printHelp() {
-	fmt.Println("Usage: delayer [options]")
+	fmt.Println("Usage: delayq [options]")
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("-d run in the background")

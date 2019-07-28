@@ -1,4 +1,5 @@
 # DelayQ
+## [项目地址](https://github.com/liuxc2016/delayq) 
 
 - 基于 Redis 的延迟消息队列中间件，采用 Golang 开发，支持 PHP、Golang 等多种语言客户端。
 - 参考 [有赞延迟队列设计](http://tech.youzan.com/queuing_delay) 中的部分设计，优化后实现。
@@ -35,7 +36,7 @@
 
 ## 如何使用
 
-`delayeq` 分为：
+`delayq` 分为：
 
 - 服务器端：负责定时扫描到期的任务，并放入队列，需在服务器上常驻执行。
 - 客户端：在代码中使用，以类库的形式，提供 `push`、`pop`、`bPop`、`remove` 方法操作任务。
