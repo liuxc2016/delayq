@@ -99,14 +99,15 @@ func ScanDelayBucket() (string, error) {
 	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
 
+	fmt.Println("正在扫描[DelayBucket]消费中任务池!")
 	now_int := time.Now().Unix()
 	job_keys, err := redis.Strings(redis_cli.Do("zrangebyscore", DELAY_BUCKET_KEY, 1, now_int))
 	if err != nil {
 		return "", err
 	}
 	if len(job_keys) <= 0 {
-		fmt.Println("delaybucket 为空,本轮扫描结束")
-		dq.logger.Println("delaybucket 为空,本轮扫描结束")
+		fmt.Println("[DelayBucketScan]本轮为空,本轮扫描结束")
+		dq.logger.Println("[DelayBucketScan] 为空,本轮扫描结束")
 		return "", nil
 	}
 	for _, v := range job_keys {
@@ -125,35 +126,64 @@ func ScanDelayBucket() (string, error) {
 				State:    utils.String2int(rk["state"]),
 			}
 
-			/*将任务置为ready状态*/
-			_, err = redis_cli.Do("hmset", JOBLIST_KEY_PREFIX+job.Jobid, "state", STATE_READY)
-			if err != nil {
-				return "", errors.New(job.Jobid + "任务置为ready 状态失败")
-			}
-			/*将任务丢入到ready pool */
-			_, err = redis_cli.Do("lpush", GetRedayPoolKey(job.Topic), job.Jobid)
-			if err != nil {
-				return "", errors.New(job.Jobid + "任务丢入ready pool失败")
-			}
+			topicSetting := utils.GetTopicSetting(job.Topic)
+			fmt.Println(job.Topic, topicSetting)
+			if job.Tryes >= topicSetting.MaxTryes {
+				/*将任务置为fail状态*/
+				_, err = redis_cli.Do("hmset", JOBLIST_KEY_PREFIX+job.Jobid, "state", STATE_DELETE)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务置为fail 状态失败")
+					return "", errors.New(job.Jobid + "任务置为fail 状态失败")
+				}
 
-			/*将任务id 移出delay bucket*/
-			_, err = redis_cli.Do("zrem", DELAY_BUCKET_KEY, job.Jobid)
-			if err != nil {
-				return "", errors.New(job.Jobid + "任务从delay_bucket移出失败")
-			}
+				/*将任务id 移出delay bucket*/
+				_, err = redis_cli.Do("zrem", DELAY_BUCKET_KEY, job.Jobid)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"移出delay bucket失败")
+					return "", errors.New(job.Jobid + "移出delay bucket移出失败")
+				}
 
-			/*发布到top*/
-			ret_json, err1 := json.Marshal(job)
-			if err1 != nil {
-				return "", errors.New(job.Jobid + "任务发布失败")
-			}
-			_, err = redis_cli.Do("Publish", job.Topic, ret_json)
-			if err != nil {
-				return "", errors.New(job.Jobid + "任务发布失败")
+				/*将任务加到fail bucket*/
+				_, err = redis_cli.Do("lpush", FAIL_BUCKET_KEY, job.Jobid)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"添加到[FAIL_BUCKET]失败")
+					return "", errors.New(job.Jobid + "添加到[FAIL_BUCKET]失败")
+				}
 			} else {
-				return "", nil
-			}
+				/*将任务置为ready状态*/
+				_, err = redis_cli.Do("hmset", JOBLIST_KEY_PREFIX+job.Jobid, "state", STATE_READY)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务置为ready 状态失败")
+					return "", errors.New(job.Jobid + "任务置为ready 状态失败")
+				}
+				/*将任务丢入到ready pool */
+				_, err = redis_cli.Do("lpush", GetRedayPoolKey(job.Topic), job.Jobid)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务丢入ready pool失败")
+					return "", errors.New(job.Jobid + "任务丢入ready pool失败")
+				} else {
+					fmt.Println(job.Jobid+"任务丢入ready pool成功", job.Tryes)
+				}
 
+				/*将任务id 移出delay bucket*/
+				_, err = redis_cli.Do("zrem", DELAY_BUCKET_KEY, job.Jobid)
+				if err != nil {
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务丢入ready pool失败")
+					return "", errors.New(job.Jobid + "任务从delay_bucket移出失败")
+				}
+
+				/*发布到top*/
+				ret_json, err1 := json.Marshal(job)
+				if err1 != nil {
+					return "", errors.New(job.Jobid + "任务发布失败")
+				}
+				_, err = redis_cli.Do("Publish", job.Topic, ret_json)
+				if err != nil {
+					return "", errors.New(job.Jobid + "任务发布失败")
+				} else {
+					return "", nil
+				}
+			}
 		} else {
 			fmt.Println("获取任务状态失败hmget err", err)
 			return "", errors.New(v + "获取任务状态失败")
@@ -178,7 +208,7 @@ func ScanReserveBucket() (string, error) {
 		return "", err1
 	}
 	if len(job_keys) <= 0 {
-		continue
+		return "", nil
 	}
 
 	for _, v := range job_keys {
@@ -199,7 +229,7 @@ func ScanReserveBucket() (string, error) {
 			}
 			nowtime := time.Now().Unix()
 
-			elapse := nowtime - job.Exectime
+			elapse := nowtime - job.Poptime
 			if elapse > job.Ttr {
 				fmt.Println(job.Jobid, "任务在[Reserve]消费状态超时了， ", job.Ttr, "秒以后重新执行")
 				dq.logger.Println(job.Jobid, "任务在[Reserve]消费状态超时了， ", job.Ttr, "秒以后重新执行")
@@ -213,26 +243,31 @@ func ScanReserveBucket() (string, error) {
 				if err != nil {
 					fmt.Println("redis set failed:", err)
 					return "", errors.New(job.Jobid + "此任务超时，重置任务为delay态失败！")
+				} else {
+					fmt.Println(job.Jobid + "此任务超时，重置任务为delay态成功！")
 				}
 
 				/*丢回delay bucket*/
 				_, err1 = redis_cli.Do("zadd", DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
 				if err1 != nil {
+					fmt.Println(job.Jobid + "此任务超时,丢回jobid到delay bucket 失败！")
 					return "", errors.New(job.Jobid + "此任务超时,丢回jobid到delay bucket 失败！")
+				} else {
+					fmt.Println(job.Jobid + "此任务超时,丢回jobid到delay bucket 丢回！")
 				}
 
 				/*
-				*从ready list中移出
+				*从reserve中移出
 				 */
-				_, err = redis_cli.Do("lrem", GetRedayPoolKey(job.Topic), 0, job.Jobid)
+				_, err = redis_cli.Do("lrem", RESERVE_BUCKET_KEY, 0, job.Jobid)
 				if err != nil {
-					fmt.Println("移出失败", err)
-					return "", errors.New(job.Jobid + "此任务超时，移出ready池失败！")
+					fmt.Println(job.Jobid, "移出失败", err)
+					return "", errors.New(job.Jobid + "此任务超时，移出[RESERVE_BUCKET]池失败！")
 				} else {
-					dq.logger.Println(job.Jobid, "任务已被移出", GetRedayPoolKey(job.Topic))
-					fmt.Println("移出", GetRedayPoolKey(job.Topic), job.Jobid)
+					dq.logger.Println(job.Jobid, "任务已被移出[RESERVE_BUCKET]", job.Topic)
+					fmt.Println("任务已被移出[RESERVE_BUCKET]", job.Jobid, job.Topic)
 				}
-				fmt.Println(GetRedayPoolKey(job.Topic))
+
 			} else {
 				dq.logger.Error(job.Jobid, "正在等待消费， 已超过预计时间", elapse)
 				fmt.Println(job.Jobid, "正在等待消费， 已超过预计时间", elapse)
@@ -280,7 +315,7 @@ func ScanReserveJobs() (string, error) {
 			nowtime := time.Now().Unix()
 			elapse := nowtime - job.Poptime
 			if elapse > job.Ttr {
-				topic_setting := GetTopicSetting(job.Topic)
+				topic_setting := utils.GetTopicSetting(job.Topic)
 				if job.Tryes >= topic_setting.MaxTryes {
 					/*丢到[FAIL_BUCKET_KEY]失败任务池里*/
 
@@ -288,13 +323,13 @@ func ScanReserveJobs() (string, error) {
 					_, err = redis_cli.Do("hmset", GetJobKey(job.Jobid), "state", STATE_DELETE)
 					if err != nil {
 						fmt.Println(job.Jobid + "此任务被取出消费，但执行超时失败！")
-						logger.Error(job.Jobid + "此任务被取出消费，但执行超时失败！")
+						dq.logger.Error(job.Jobid + "此任务被取出消费，但执行超时失败！")
 						return "", errors.New(job.Jobid + "此任务被取出消费，但执行超时失败！")
 					}
 
 					_, err = redis_cli.Do("lpush", FAIL_BUCKET_KEY, job.Jobid)
 					if err != nil {
-						logger.Println(job.Jobid + "此任务被取出消费且执行超时失败,未成功失败任务池失败！")
+						dq.logger.Println(job.Jobid + "此任务被取出消费且执行超时失败,未成功失败任务池失败！")
 						return "", errors.New(job.Jobid + "此任务被取出消费且执行超时失败,未成功失败任务池失败！")
 					}
 
@@ -308,8 +343,8 @@ func ScanReserveJobs() (string, error) {
 					_, err = redis_cli.Do("hmset", GetJobKey(job.Jobid), "state", STATE_DELAY, "tryes", job.Tryes, "exectime", job.Exectime)
 					if err != nil {
 						fmt.Println(job.Jobid+"此任务第", job.Tryes, "次超时，重置任务为delay态失败！")
-						logger.Error(job.Jobid+"此任务第", job.Tryes, "次超时，重置任务为delay态失败！")
-						return "", errors.New(job.Jobid+"此任务第", job.Tryes, "次超时，重置任务为delay态失败！")
+						dq.logger.Error(job.Jobid+"此任务第", job.Tryes, "次超时，重置任务为delay态失败！")
+						return "", errors.New(job.Jobid + "此任务超时，重置任务为delay态失败！")
 					}
 					job.Tryes += 1
 
@@ -325,7 +360,7 @@ func ScanReserveJobs() (string, error) {
 					_, err = redis_cli.Do("lrem", RESERVE_BUCKET_KEY, 0, job.Jobid)
 					if err != nil {
 						fmt.Println(job.Jobid+"移出[RESERVE_BUCKET]失败", err)
-						logger.Error(job.Jobid+"移出[RESERVE_BUCKET]失败", err)
+						dq.logger.Error(job.Jobid+"移出[RESERVE_BUCKET]失败", err)
 						return "", errors.New(job.Jobid + "此任务超时，移出[RESERVE_BUCKET]池失败！")
 					}
 					//fmt.Println("移出", RESERVE_BUCKET_KEY, job.Jobid)

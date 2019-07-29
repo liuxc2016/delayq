@@ -83,8 +83,8 @@ func DealPushUrl(ret_str string) {
 		dqClient := &dqclient.DqClient{}
 		dqClient.InitClient()
 		dqClient.FinishJob(job.Jobid)
-		logger.Println(job.Jobid, "状态码", resp.StatusCode, "任务完成了返回数据", string(body))
+		logger.Println(job.Jobid, "第", job.Tryes, "次执行，状态码", resp.StatusCode, "任务完成了返回数据", string(body))
 	} else {
-		logger.Error(job.Jobid + "处理任务，解析url返回状态码为非200" + url)
+		logger.Error(job.Jobid, "第", job.Tryes, "次执行，状态码", resp.StatusCode, "处理任务失败了，解析url返回状态码为非200"+url)
 	}
 }
