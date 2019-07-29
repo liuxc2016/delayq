@@ -29,7 +29,7 @@ func Consume(topic string, dqClient *dqclient.DqClient) {
 
 		if err != nil {
 			fmt.Println("本次轮询未检查到当前topic的job", topic, ret_str, err)
-			time.Sleep(1 * time.Second)
+			time.Sleep(10 * time.Millisecond)
 		} else {
 			fmt.Println(ret_str)
 			go DealJob(topic, ret_str)

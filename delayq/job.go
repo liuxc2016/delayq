@@ -109,6 +109,8 @@ func ScanDelayBucket() (string, error) {
 		fmt.Println("[DelayBucketScan]本轮为空,本轮扫描结束")
 		dq.logger.Println("[DelayBucketScan] 为空,本轮扫描结束")
 		return "", nil
+	} else {
+		fmt.Println("本次扫描发现", len(job_keys), "个任务需要投递到ready pool")
 	}
 	for _, v := range job_keys {
 		rk, err := redis.StringMap(redis_cli.Do("HGETALL", GetJobKey(v)))
@@ -173,27 +175,31 @@ func ScanDelayBucket() (string, error) {
 				/*将任务id 移出delay bucket*/
 				_, err = redis_cli.Do("zrem", DELAY_BUCKET_KEY, job.Jobid)
 				if err != nil {
-					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务丢入ready pool失败")
-					return "", errors.New(job.Jobid + "任务从delay_bucket移出失败")
+					fmt.Println("[DelayBucketScan] ", job.Jobid+"任务移出[DELAY_BUCKET]失败")
+					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务移出[DELAY_BUCKET]失败")
+					return "", errors.New(job.Jobid + "任务从[DELAY_BUCKET]移出失败")
+				} else {
+					fmt.Println("[DelayBucketScan] ", job.Jobid+"任务移出[DELAY_BUCKET]成功")
 				}
 
 				/*发布到top*/
-				ret_json, err1 := json.Marshal(job)
-				if err1 != nil {
-					return "", errors.New(job.Jobid + "任务发布失败")
-				}
-				_, err = redis_cli.Do("Publish", job.Topic, ret_json)
-				if err != nil {
-					return "", errors.New(job.Jobid + "任务发布失败")
-				} else {
-					return "", nil
-				}
+				// ret_json, err1 := json.Marshal(job)
+				// if err1 != nil {
+				// 	return "", errors.New(job.Jobid + "任务发布失败")
+				// }
+				// _, err = redis_cli.Do("Publish", job.Topic, ret_json)
+				// if err != nil {
+				// 	return "", errors.New(job.Jobid + "任务发布失败")
+				// } else {
+				// 	return "", nil
+				// }
 			}
 		} else {
 			fmt.Println("获取任务状态失败hmget err", err)
 			return "", errors.New(v + "获取任务状态失败")
 		}
 	}
+	fmt.Println("本次扫描发现", len(job_keys), "个任务需要投递到ready pool，投递完成")
 	return "", nil
 
 }
