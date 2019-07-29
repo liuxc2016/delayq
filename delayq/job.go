@@ -149,9 +149,14 @@ func ScanDelayBucket() (string, error) {
 					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"添加到[FAIL_BUCKET]失败")
 					return "", errors.New(job.Jobid + "添加到[FAIL_BUCKET]失败")
 				}
+				dq.logger.Error(job.Jobid + "达到job.Tryes次，任务失败，进入失败列表！")
 			} else {
 				/*将任务置为ready状态*/
-				_, err = redis_cli.Do("hmset", JOBLIST_KEY_PREFIX+job.Jobid, "state", STATE_READY)
+				if job.Tryes > 0 {
+					/*第一次的超时时间由topic给出,后面的超时时间由topic给出*/
+					job.Ttr = topicSetting.Ttr[job.Tryes]
+				}
+				_, err = redis_cli.Do("hmset", JOBLIST_KEY_PREFIX+job.Jobid, "state", STATE_READY, "ttr", job.Ttr)
 				if err != nil {
 					dq.logger.Println("[DelayBucketScan] ", job.Jobid+"任务置为ready 状态失败")
 					return "", errors.New(job.Jobid + "任务置为ready 状态失败")
@@ -235,9 +240,6 @@ func ScanReserveBucket() (string, error) {
 				dq.logger.Println(job.Jobid, "任务在[Reserve]消费状态超时了， ", job.Ttr, "秒以后重新执行")
 				//
 				job.Exectime = nowtime + job.Ttr
-
-				job.Tryes += 1
-
 				/*修改任务状态*/
 				_, err = redis_cli.Do("hmset", GetJobKey(job.Jobid), "state", STATE_DELAY, "tryes", job.Tryes, "exectime", job.Exectime)
 				if err != nil {
@@ -346,8 +348,6 @@ func ScanReserveJobs() (string, error) {
 						dq.logger.Error(job.Jobid+"此任务第", job.Tryes, "次超时，重置任务为delay态失败！")
 						return "", errors.New(job.Jobid + "此任务超时，重置任务为delay态失败！")
 					}
-					job.Tryes += 1
-
 					/*丢回delay bucket*/
 					_, err = redis_cli.Do("zadd", DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
 					if err != nil {

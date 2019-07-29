@@ -123,13 +123,12 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 		Addtime:  utils.String2int64(result["addtime"]),
 		Poptime:  time.Now().Unix(),
 		Exectime: utils.String2int64(result["exectime"]),
-		Tryes:    utils.String2int(result["tryes"]),
+		Tryes:    utils.String2int(result["tryes"]) + 1,
 		Ttr:      utils.String2int64(result["ttr"]),
 		State:    utils.String2int(result["state"]),
 	}
-
+	fmt.Println("本次pop请求，client返回：", job)
 	json_ret, _ := json.Marshal(job)
-	fmt.Println("本次pop返回,", json_ret)
 	return string(json_ret), nil
 }
 
