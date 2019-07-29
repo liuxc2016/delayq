@@ -83,7 +83,7 @@ func (dq *DelayQ) Stop() {
 
 //扫描JobList,每秒执行一次，
 //1.扫瞄delay bucket
-//2.扫瞄ready list?
+//2.扫瞄reserve list,是否有执行超时的
 //是否有执行超时的，执行失败的, 丢回到delay pool
 //xx--delete--xx是否有消费成功的，消费成功的，移入finishedJobList，（是否有notify_url，由dqclient来处理这个）
 func (dq *DelayQ) Timer() {
@@ -102,11 +102,11 @@ func (dq *DelayQ) Timer() {
 			fmt.Println("当前循环时间", time.Now().Format("2006-01-02 15:04:05"))
 			str, err := ScanDelayBucket() //扫描delay bucket中的jobid ，到期的丢入ready pool
 			if err != nil {
-				dq.logger.Println("扫描delay bucket出错" + err.Error() + str)
+				dq.logger.Println("扫描[DelayBucket]待执行任务池出错" + err.Error() + str)
 			}
-			str, err = ScanReadyJobs() //扫描ready list
+			str, err = ScanReserveBucket() //扫描ready list
 			if err != nil {
-				dq.logger.Println("扫描ready pool出错" + err.Error() + str)
+				dq.logger.Println("扫描[ReserveBucket]消费中任务池出错" + err.Error() + str)
 			}
 		}
 	}
