@@ -102,14 +102,15 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 	if result["topic"] == "" || result["data"] == "" {
 		return "", errors.New("从任务信息池中获取到任务信息失败")
 	}
-	_, err = redis_cli.Do("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
-	if err != nil {
-		fmt.Println(jobid, "设置任务信息状态[STATE_RESERVE]失败:", err)
-		return "", errors.New("redis 设置任务信息状态[STATE_RESERVE]失败")
-	}
 
-	/*将任务丢入reserv bucket*/
-	_, err = redis_cli.Do("lpush", delayq.RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Send("MULTI")
+	/*设置任务状态为执行中*/
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
+	/*移出ready 池*/
+	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), jobid)
+	/*移入执行中池*/
+	redis_cli.Send("lpush", delayq.RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Do("EXEC")
 	if err != nil {
 		fmt.Println(jobid, "将超时任务丢入[RESERVE_BUCKET]失败:", err)
 		return "", errors.New(jobid + "redis 将超时任务丢入[RESERVE_BUCKET]失败")
@@ -157,10 +158,18 @@ func (dqcli *DqClient) Brpop(topic string, timeout int) (string, error) {
 	if result["topic"] == "" || result["data"] == "" {
 		return "", errors.New("从任务信息池中获取到任务信息失败")
 	}
-	_, err = redis_cli.Do("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE)
+
+	redis_cli.Send("MULTI")
+	/*设置任务状态为执行中*/
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
+	/*移出ready 池*/
+	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), jobid)
+	/*移入执行中池*/
+	redis_cli.Send("lpush", delayq.RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Do("EXEC")
 	if err != nil {
-		fmt.Println(jobid, "设置任务信息状态[STATE_RESERVE]失败:", err)
-		return "", errors.New("redis 设置任务信息状态[STATE_RESERVE]失败")
+		fmt.Println(jobid, "将超时任务丢入[RESERVE_BUCKET]失败:", err)
+		return "", errors.New(jobid + "redis 将超时任务丢入[RESERVE_BUCKET]失败")
 	}
 
 	job := &delayq.Job{
@@ -191,19 +200,17 @@ func (dqcli *DqClient) FinishJob(jobid string) (string, error) {
 	if jobid == "" {
 		return "", errors.New("缺少参数jobid:")
 	}
-	_, err = redis_cli.Do("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_FINISH)
-	if err != nil {
-		fmt.Println("redis set STATE_FINISH failed:", err)
-		return "", errors.New("redis set STATE_FINISH failed:")
-	}
 
-	/*将任务id 移出reserve bucket, 同时放入finish bucket*/
-	_, err = redis_cli.Do("zrem", delayq.DELAY_BUCKET_KEY, jobid)
-	if err != nil {
-		return "", errors.New(jobid + "任务从delay_bucket移出失败")
-	}
-
-	_, err = redis_cli.Do("lpush", delayq.FINISH_BUCKET_KEY, jobid)
+	redis_cli.Send("MULTI")
+	//设置任务状态为完成
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_FINISH)
+	//移出delay_buckt?
+	redis_cli.Send("zrem", delayq.DELAY_BUCKET_KEY, jobid)
+	//移出reserved pool
+	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, jobid)
+	//移入已完成
+	redis_cli.Send("lpush", delayq.FINISH_BUCKET_KEY, jobid)
+	_, err = redis_cli.Do("EXEC")
 	if err != nil {
 		return "", errors.New(jobid + "任务添加到[FINISH_BUCKET]失败")
 	}
@@ -220,23 +227,19 @@ func (dqcli *DqClient) FailJob(jobid string) (string, error) {
 	if jobid == "" {
 		return "", errors.New("缺少参数jobid:")
 	}
-	_, err = redis_cli.Do("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_DELETE)
-	if err != nil {
-		fmt.Println("redis set STATE_DELETE failed:", err)
-		return "", errors.New("redis set STATE_DELETE failed:")
-	}
+	redis_cli.Send("MULTI")
+	//设置任务状态为完成
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_DELETE)
+	//移出delay_buckt?
+	redis_cli.Send("zrem", delayq.DELAY_BUCKET_KEY, jobid)
+	//移出reserved pool
+	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, jobid)
 
-	/*将任务id 移出reserve bucket, 同时放入finish bucket*/
-	_, err = redis_cli.Do("lrem", delayq.RESERVE_BUCKET_KEY, 0, jobid)
+	//移入已完成
+	redis_cli.Send("lpush", delayq.FAIL_BUCKET_KEY, jobid)
+	_, err = redis_cli.Do("EXEC")
 	if err != nil {
-		return "", errors.New(jobid + "任务从[RESERVE_BUCKET]移出失败")
-	} else {
-		fmt.Println(jobid + "任务从[RESERVE_BUCKET]移出成功")
-	}
-
-	_, err = redis_cli.Do("lpush", delayq.FAIL_BUCKET_KEY, jobid)
-	if err != nil {
-		return "", errors.New(jobid + "任务添加到[FAIL_BUCKET_KEY]失败")
+		return "", errors.New(jobid + "任务添加到[FINISH_BUCKET]失败")
 	}
 	return "", nil
 }
@@ -278,17 +281,15 @@ func (dqcli *DqClient) AddJob(jobid string, name string, topic string, data stri
 		}
 	}
 
-	_, err1 := redis_cli.Do("hmset", delayq.GetJobKey(jobid), "jobid", job.Jobid, "name", job.Name,
+	redis_cli.Send("MULTI")
+	/*添加任务*/
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "jobid", job.Jobid, "name", job.Name,
 		"topic", job.Topic, "data", job.Data, "addtime", job.Addtime, "exectime", job.Exectime, "tryes", job.Tryes,
 		"ttr", job.Ttr, "state", job.State)
-
-	if err1 != nil {
-		return "", errors.New("添加失败！")
-	}
-
-	/*将jobid 丢入delay bucket*/
-
-	_, err1 = redis_cli.Do("zadd", delayq.DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
+	/*添加到延时队列*/
+	redis_cli.Send("zadd", delayq.DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
+	r, err1 := redis_cli.Do("EXEC")
+	r = r
 	if err1 != nil {
 		return "", errors.New("添加jobid到delay bucket 失败！")
 	}
