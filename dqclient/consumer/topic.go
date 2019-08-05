@@ -28,7 +28,7 @@ func Consume(topic string, dqClient *dqclient.DqClient) {
 		ret_str, err := dqClient.Pop(topic)
 
 		if err != nil {
-			fmt.Println("本次轮询未检查到当前topic的job", topic, ret_str, err)
+			//fmt.Println("本次轮询未检查到当前topic的job", topic, ret_str, err)
 			time.Sleep(10 * time.Millisecond)
 		} else {
 			fmt.Println(ret_str)

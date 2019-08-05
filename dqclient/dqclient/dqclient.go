@@ -234,7 +234,6 @@ func (dqcli *DqClient) FailJob(jobid string) (string, error) {
 	redis_cli.Send("zrem", delayq.DELAY_BUCKET_KEY, jobid)
 	//移出reserved pool
 	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, jobid)
-
 	//移入已完成
 	redis_cli.Send("lpush", delayq.FAIL_BUCKET_KEY, jobid)
 	_, err = redis_cli.Do("EXEC")

@@ -85,20 +85,6 @@ func AddJob(jobid string, name string, topic string, data string, exectime int64
 	if err1 != nil {
 		return "", errors.New("添加失败！")
 	}
-
-	// _, err1 := redis_cli.Do("hmset", GetJobKey(jobid), "jobid", job.Jobid, "name", job.Name,
-	// 	"topic", job.Topic, "data", job.Data, "addtime", job.Addtime, "exectime", job.Exectime, "tryes", job.Tryes,
-	// 	"ttr", job.Ttr, "state", job.State)
-
-	// if err1 != nil {
-	// 	return "", errors.New("添加失败！")
-	// }
-	// /*将jobid 丢入delay bucket*/
-	// _, err1 = redis_cli.Do("zadd", DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
-	// if err1 != nil {
-	// 	return "", errors.New("添加jobid到delay bucket 失败！")
-	// }
-
 	job_json, _ := json.Marshal(job)
 	return string(job_json), nil
 }
