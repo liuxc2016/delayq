@@ -106,7 +106,12 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 	redis_cli.Send("MULTI")
 	/*设置任务状态为执行中*/
 	topic_setting := utils.GetTopicSetting(result["topic"])
-	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1, "ttr", topic_setting.Ttr[utils.String2int(result["tryes"])])
+	ttr_d := 10
+	if utils.String2int(result["tryes"]) < len(topic_setting.Ttr) {
+		ttr_d = int(topic_setting.Ttr[utils.String2int(result["tryes"])])
+	}
+
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1, "ttr", ttr_d)
 	/*移出ready 池*/
 	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), 0, jobid)
 	/*移入执行中池*/
