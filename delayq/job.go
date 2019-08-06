@@ -40,13 +40,12 @@ func GetJobKey(jobid string) string {
 	return JOBLIST_KEY_PREFIX + jobid
 }
 
-func AddJob(jobid string, name string, topic string, data string, exectime int64, ttr int64) (string, error) {
-	if ttr <= 0 {
-		ttr = 20
-	}
+func AddJob(jobid string, name string, topic string, data string, exectime int64) (string, error) {
 	if jobid == "" || topic == "" {
 		return "", errors.New(jobid + topic + "jobid, topic 必须填写！")
 	}
+	topic_setting := utils.GetTopicSetting(topic)
+	ttr := topic_setting.Ttr[0]
 	if exectime == 0 {
 		exectime = time.Now().Unix() + 1 //如果传入的执行时间为0，表示立即执行
 	}
@@ -97,15 +96,15 @@ func ScanDelayBucket() (string, error) {
 	defer redis_cli.Close()
 
 	fail_num := 0
-	fmt.Println("正在扫描[DelayBucket]消费中任务池!")
+	//fmt.Println("正在扫描[DelayBucket]消费中任务池!")
 	now_int := time.Now().Unix()
 	job_keys, err := redis.Strings(redis_cli.Do("zrangebyscore", DELAY_BUCKET_KEY, 1, now_int))
 	if err != nil {
 		return "", err
 	}
 	if len(job_keys) <= 0 {
-		fmt.Println("[DelayBucketScan]本轮为空,本轮扫描结束")
-		dq.logger.Println("[DelayBucketScan] 为空,本轮扫描结束")
+		//fmt.Println("[DelayBucketScan]本轮为空,本轮扫描结束")
+		//dq.logger.Println("[DelayBucketScan] 为空,本轮扫描结束")
 		return "", nil
 	} else {
 		fmt.Println("本次扫描发现", len(job_keys), "个任务需要投递到ready pool")
@@ -148,7 +147,7 @@ func ScanDelayBucket() (string, error) {
 				/*将任务置为ready状态*/
 				if job.Tryes > 0 {
 					/*第一次的超时时间由topic给出,后面的超时时间由topic给出*/
-					job.Ttr = topicSetting.Ttr[job.Tryes]
+					job.Ttr = topicSetting.Ttr[job.Tryes-1]
 				}
 
 				redis_cli.Send("MULTI")
@@ -197,10 +196,10 @@ func ScanReserveBucket() (string, error) {
 	redis_cli := dq.pool.Get()
 	defer redis_cli.Close()
 
-	fmt.Println("正在扫描[ReserveBucket]消费中任务池!")
+	//fmt.Println("正在扫描[ReserveBucket]消费中任务池!")
 
 	job_keys, err1 := redis.Strings(redis_cli.Do("lrange", RESERVE_BUCKET_KEY, 0, -1))
-	fmt.Println("[ReserveBucket]当前消费中的任务", job_keys)
+	//fmt.Println("[ReserveBucket]当前消费中的任务", job_keys)
 	if err1 != nil {
 		return "", err1
 	}
@@ -225,7 +224,8 @@ func ScanReserveBucket() (string, error) {
 				State:    utils.String2int(rk["state"]),
 			}
 			if job.Jobid == "" || job.Topic == "" {
-				fmt.Println("出错rk了！！！！！！", v, rk)
+				fmt.Println("获取" + rk["jobid"] + "的任务信息出错了，[ReserveBucket]！！！！！！")
+				dq.logger.Error("获取" + rk["jobid"] + "的任务信息出错了，[ReserveBucket]！！！！！！")
 				continue
 			}
 			nowtime := time.Now().Unix()
@@ -321,9 +321,9 @@ func ScanReserveJobs_del() (string, error) {
 				} else {
 					/*丢回delaybucket里，等待下次执行*/
 
-					job.Exectime = nowtime + topic_setting.Ttr[job.Tryes]
+					job.Exectime = nowtime + topic_setting.Ttr[job.Tryes-1]
 					fmt.Println(job.Jobid, "任务在reseave态超时失败， 将重新执行，当前为第", job.Tryes, "次，下次执行将在秒后：", topic_setting.Ttr[job.Tryes])
-
+					dq.logger.Println(job.Jobid, "任务在reseave态超时失败， 将重新执行，当前为第", job.Tryes, "次，下次执行将在秒后：", topic_setting.Ttr[job.Tryes])
 					/*修改任务状态*/
 					_, err = redis_cli.Do("hmset", GetJobKey(job.Jobid), "state", STATE_DELAY, "tryes", job.Tryes, "exectime", job.Exectime)
 					if err != nil {

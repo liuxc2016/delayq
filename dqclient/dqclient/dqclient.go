@@ -105,7 +105,8 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 
 	redis_cli.Send("MULTI")
 	/*设置任务状态为执行中*/
-	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
+	topic_setting := utils.GetTopicSetting(result["topic"])
+	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1, "ttr", topic_setting.Ttr[utils.String2int(result["tryes"])])
 	/*移出ready 池*/
 	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), 0, jobid)
 	/*移入执行中池*/
@@ -246,13 +247,13 @@ func (dqcli *DqClient) FailJob(jobid string) (string, error) {
 /*
 *添加一个任务
  */
-func (dqcli *DqClient) AddJob(jobid string, name string, topic string, data string, exectime int64, ttr int64) (string, error) {
-	if ttr <= 0 {
-		ttr = 20
-	}
+func (dqcli *DqClient) AddJob(jobid string, name string, topic string, data string, exectime int64) (string, error) {
+
 	if jobid == "" || topic == "" {
 		return "", errors.New(jobid + topic + "jobid, topic 必须填写！")
 	}
+	topic_setting := utils.GetTopicSetting(topic)
+	ttr := topic_setting.Ttr[0]
 	if exectime == 0 {
 		exectime = time.Now().Unix() + 1 //如果传入的执行时间为0，表示立即执行
 	}
@@ -282,9 +283,10 @@ func (dqcli *DqClient) AddJob(jobid string, name string, topic string, data stri
 
 	redis_cli.Send("MULTI")
 	/*添加任务*/
+
 	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "jobid", job.Jobid, "name", job.Name,
 		"topic", job.Topic, "data", job.Data, "addtime", job.Addtime, "exectime", job.Exectime, "tryes", job.Tryes,
-		"ttr", job.Ttr, "state", job.State)
+		"ttr", ttr, "state", job.State)
 	/*添加到延时队列*/
 	redis_cli.Send("zadd", delayq.DELAY_BUCKET_KEY, job.Exectime, job.Jobid)
 	r, err1 := redis_cli.Do("EXEC")

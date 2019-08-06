@@ -84,7 +84,7 @@ func (p *Http) addJob(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//(dqcli *DqClient) AddJob(jobid string, name string, topic string, data string, exectime int64) (string, error) {
 
-		ret1, err1 := p.Dqclient.AddJob(cmdMessage.Jobid, cmdMessage.Name, cmdMessage.Topic, cmdMessage.Data, cmdMessage.Exectime, cmdMessage.Ttr)
+		ret1, err1 := p.Dqclient.AddJob(cmdMessage.Jobid, cmdMessage.Name, cmdMessage.Topic, cmdMessage.Data, cmdMessage.Exectime)
 		if err1 != nil {
 			ret = RetJson("1", "提交参数不正确！"+err1.Error(), ret1)
 		} else {
