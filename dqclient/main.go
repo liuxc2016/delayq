@@ -5,11 +5,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"./consumer"
 	"./dqclient"
-	"./httpclient"
 )
 
 var (
@@ -45,26 +42,28 @@ func main() {
 
 	dqClient := &dqclient.DqClient{}
 	dqClient.InitClient()
+	ret, err := dqClient.Pop("push_url")
+	fmt.Println("pop", ret, err)
 	exitChan = make(chan bool, 1)
 	/*
 	*	开启http服务
 	 */
-	httpClient := &httpclient.Http{
-		Dqclient: dqClient,
-	}
+	// httpClient := &httpclient.Http{
+	// 	Dqclient: dqClient,
+	// }
 
-	go handleSignal()
-	go httpClient.Serve()
-	go consumer.Consume("push_url", dqClient)
-	for {
-		select {
-		case <-exitChan:
-			fmt.Println("收到结束, 通知client, http结束")
-			httpClient.Stop()
-			dqClient.Stop()
-			time.Sleep(3 * time.Second)
-			os.Exit(0)
-		}
-	}
+	// go handleSignal()
+	// go httpClient.Serve()
+	// go consumer.Consume("push_url", dqClient)
+	// for {
+	// 	select {
+	// 	case <-exitChan:
+	// 		fmt.Println("收到结束, 通知client, http结束")
+	// 		httpClient.Stop()
+	// 		dqClient.Stop()
+	// 		time.Sleep(3 * time.Second)
+	// 		os.Exit(0)
+	// 	}
+	// }
 
 }

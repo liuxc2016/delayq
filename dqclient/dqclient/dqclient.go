@@ -107,7 +107,7 @@ func (dqcli *DqClient) Pop(topic string) (string, error) {
 	/*设置任务状态为执行中*/
 	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
 	/*移出ready 池*/
-	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), jobid)
+	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), 0, jobid)
 	/*移入执行中池*/
 	redis_cli.Send("lpush", delayq.RESERVE_BUCKET_KEY, jobid)
 	redis_cli.Do("EXEC")
@@ -163,7 +163,7 @@ func (dqcli *DqClient) Brpop(topic string, timeout int) (string, error) {
 	/*设置任务状态为执行中*/
 	redis_cli.Send("hmset", delayq.GetJobKey(jobid), "state", delayq.STATE_RESERVE, "poptime", time.Now().Unix(), "tryes", utils.String2int(result["tryes"])+1)
 	/*移出ready 池*/
-	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), jobid)
+	redis_cli.Send("lrem", delayq.GetRedayPoolKey(topic), 0, jobid)
 	/*移入执行中池*/
 	redis_cli.Send("lpush", delayq.RESERVE_BUCKET_KEY, jobid)
 	redis_cli.Do("EXEC")
@@ -207,7 +207,7 @@ func (dqcli *DqClient) FinishJob(jobid string) (string, error) {
 	//移出delay_buckt?
 	redis_cli.Send("zrem", delayq.DELAY_BUCKET_KEY, jobid)
 	//移出reserved pool
-	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, 0, jobid)
 	//移入已完成
 	redis_cli.Send("lpush", delayq.FINISH_BUCKET_KEY, jobid)
 	_, err = redis_cli.Do("EXEC")
@@ -233,7 +233,7 @@ func (dqcli *DqClient) FailJob(jobid string) (string, error) {
 	//移出delay_buckt?
 	redis_cli.Send("zrem", delayq.DELAY_BUCKET_KEY, jobid)
 	//移出reserved pool
-	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, 0, jobid)
 	//移入已完成
 	redis_cli.Send("lpush", delayq.FAIL_BUCKET_KEY, jobid)
 	_, err = redis_cli.Do("EXEC")

@@ -372,7 +372,7 @@ func FinishJob(jobid string) (string, error) {
 	redis_cli.Send("MULTI")
 	redis_cli.Send("hmset", GetJobKey(jobid), "state", STATE_FINISH)
 	/*从reserved pool 中移除*/
-	redis_cli.Send("lrem", RESERVE_BUCKET_KEY, jobid)
+	redis_cli.Send("lrem", RESERVE_BUCKET_KEY, 0, jobid)
 	r, err1 := redis_cli.Do("EXEC")
 	r = r
 	if err1 != nil {
