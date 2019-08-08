@@ -9,7 +9,7 @@ func GetTopicSetting(topic string) *TopicSetting {
 	topicSetting := &TopicSetting{}
 	if topic == "push_url" {
 		topicSetting.MaxTryes = 5
-		topicSetting.Ttr = []int64{10, 20, 30, 40}
+		topicSetting.Ttr = []int64{30, 60, 90, 120}
 	} else {
 		topicSetting.MaxTryes = 1
 		topicSetting.Ttr = []int64{30}
