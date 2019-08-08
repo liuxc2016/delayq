@@ -10,11 +10,10 @@ import (
 	"../../utils"
 
 	"github.com/garyburd/redigo/redis"
-	"gopkg.in/ini.v1"
 )
 
 type DqClient struct {
-	cfg          *ini.File
+	cfg          utils.Config
 	pool         *redis.Pool
 	logger       *utils.Logger
 	redis_prefix string
@@ -52,23 +51,30 @@ func (dqcli *DqClient) Stop() {
 
 func (dqcli *DqClient) InitClient() error {
 	dqcli.consumClose = make(chan bool, 1)
-	redis_host := "47.244.135.251:6379"
-	redis_pass := "123456"
+	dqcli.cfg = utils.LoadConfig("../conf/delayq.conf")
+	redis_host := dqcli.cfg.Delayqcli.Host
+	redis_port := dq.config.Delayqcli.Port
+	redis_pass := dqcli.cfg.Delayqcli.Password
 
 	// 建立连接池
 	dqcli.pool = &redis.Pool{
-		MaxIdle:     5, //最大线程
-		MaxActive:   5,
-		IdleTimeout: 30 * time.Second,
-		Wait:        true,
+		MaxIdle:   dqcli.cfg.Delayqcli.MaxIdle,   //连接池的最大空闲连接数。设为0表示无限制
+		MaxActive: dqcli.cfg.Delayqcli.MaxActive, //1个pool所能分配的最大的连接数目,设为0表示无限制
+		// 空闲连接超时时间，超过超时时间的空闲连接会被关闭。
+		// 如果设置成0，空闲连接将不会被关闭
+		// 应该设置一个比redis服务端超时时间更短的时间
+		IdleTimeout: time.Duration(dqcli.cfg.Delayqcli.IdleTimeout) * time.Second,
+		// 如果Wait被设置成true，则Get()方法将会阻塞
+		Wait: true,
 		Dial: func() (redis.Conn, error) {
-			con, err := redis.Dial("tcp", redis_host,
+			con, err := redis.Dial("tcp", redis_host+":"+redis_port,
 				redis.DialPassword(redis_pass),
-				redis.DialDatabase(6),
+				redis.DialDatabase(dqcli.cfg.Delayqcli.Database),
 				redis.DialConnectTimeout(30*time.Second),
 				redis.DialReadTimeout(30*time.Second),
 				redis.DialWriteTimeout(30*time.Second))
 			if err != nil {
+				fmt.Println(err)
 				return nil, err
 			}
 			return con, nil
@@ -215,7 +221,7 @@ func (dqcli *DqClient) FinishJob(jobid string) (string, error) {
 	//移出reserved pool
 	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, 0, jobid)
 	//移入已完成
-	redis_cli.Send("lpush", delayq.FINISH_BUCKET_KEY, jobid)
+	redis_cli.Send("sadd", delayq.FINISH_BUCKET_KEY, jobid)
 	_, err = redis_cli.Do("EXEC")
 	if err != nil {
 		return "", errors.New(jobid + "任务添加到[FINISH_BUCKET]失败")
@@ -241,7 +247,7 @@ func (dqcli *DqClient) FailJob(jobid string) (string, error) {
 	//移出reserved pool
 	redis_cli.Send("lrem", delayq.RESERVE_BUCKET_KEY, 0, jobid)
 	//移入已完成
-	redis_cli.Send("lpush", delayq.FAIL_BUCKET_KEY, jobid)
+	redis_cli.Send("sadd", delayq.FAIL_BUCKET_KEY, jobid)
 	_, err = redis_cli.Do("EXEC")
 	if err != nil {
 		return "", errors.New(jobid + "任务添加到[FINISH_BUCKET]失败")
@@ -297,6 +303,7 @@ func (dqcli *DqClient) AddJob(jobid string, name string, topic string, data stri
 	r, err1 := redis_cli.Do("EXEC")
 	r = r
 	if err1 != nil {
+		fmt.Println(err1)
 		return "", errors.New("添加jobid到delay bucket 失败！")
 	}
 

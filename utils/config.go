@@ -5,8 +5,9 @@ import (
 )
 
 type Config struct {
-	Delayq Delayq
-	Redis  Redis
+	Delayq    Delayq
+	Redis     Redis
+	Delayqcli Delayqcli
 }
 
 type Delayq struct {
@@ -17,6 +18,17 @@ type Delayq struct {
 }
 
 type Redis struct {
+	Host            string
+	Port            string
+	Database        int
+	Password        string
+	MaxIdle         int
+	MaxActive       int
+	IdleTimeout     int64
+	ConnMaxLifetime int64
+}
+
+type Delayqcli struct {
 	Host            string
 	Port            string
 	Database        int
@@ -52,6 +64,12 @@ func LoadConfig(conf_file string) Config {
 	maxActive, _ := redis.Key("max_active").Int()
 	idleTimeout, _ := redis.Key("idle_timeout").Int64()
 	connMaxLifetime, _ := redis.Key("conn_max_lifetime").Int64()
+
+	cli_database, _ := conf.Section("delayqcli").Key("database").Int()
+	cli_max_idle, _ := conf.Section("delayqcli").Key("max_idle").Int()
+	cli_max_active, _ := conf.Section("delayqcli").Key("max_active").Int()
+	cli_idle_timeout, _ := conf.Section("delayqcli").Key("idle_timeout").Int64()
+	cli_conn_max_lifetime, _ := conf.Section("delayqcli").Key("conn_max_lifetime").Int64()
 	// 返回
 	config := Config{
 		Delayq: Delayq{
@@ -69,6 +87,16 @@ func LoadConfig(conf_file string) Config {
 			MaxActive:       maxActive,
 			IdleTimeout:     idleTimeout,
 			ConnMaxLifetime: connMaxLifetime,
+		},
+		Delayqcli: Delayqcli{
+			Host:            conf.Section("delayqcli").Key("host").String(),
+			Port:            conf.Section("delayqcli").Key("port").String(),
+			Database:        cli_database,
+			Password:        conf.Section("delayqcli").Key("password").String(),
+			MaxIdle:         cli_max_idle,
+			MaxActive:       cli_max_active,
+			IdleTimeout:     cli_idle_timeout,
+			ConnMaxLifetime: cli_conn_max_lifetime,
 		},
 	}
 	return config

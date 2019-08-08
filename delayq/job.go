@@ -135,7 +135,7 @@ func ScanDelayBucket() (string, error) {
 				/*将任务id 移出delay bucket*/
 				redis_cli.Send("zrem", DELAY_BUCKET_KEY, job.Jobid)
 				/*将任务加到fail bucket*/
-				redis_cli.Send("lpush", FAIL_BUCKET_KEY, job.Jobid)
+				redis_cli.Send("sadd", FAIL_BUCKET_KEY, job.Jobid)
 				r, err1 := redis_cli.Do("EXEC")
 				r = r
 				if err1 != nil {
@@ -312,7 +312,7 @@ func ScanReserveJobs_del() (string, error) {
 						return "", errors.New(job.Jobid + "此任务被取出消费，但执行超时失败！")
 					}
 
-					_, err = redis_cli.Do("lpush", FAIL_BUCKET_KEY, job.Jobid)
+					_, err = redis_cli.Do("sadd", FAIL_BUCKET_KEY, job.Jobid)
 					if err != nil {
 						dq.logger.Println(job.Jobid + "此任务被取出消费且执行超时失败,未成功失败任务池失败！")
 						return "", errors.New(job.Jobid + "此任务被取出消费且执行超时失败,未成功失败任务池失败！")
