@@ -53,7 +53,7 @@ func (dqcli *DqClient) InitClient() error {
 	dqcli.consumClose = make(chan bool, 1)
 	dqcli.cfg = utils.LoadConfig("../conf/delayq.conf")
 	redis_host := dqcli.cfg.Delayqcli.Host
-	redis_port := dq.config.Delayqcli.Port
+	redis_port := dqcli.config.Delayqcli.Port
 	redis_pass := dqcli.cfg.Delayqcli.Password
 
 	// 建立连接池
