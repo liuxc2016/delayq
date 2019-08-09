@@ -127,6 +127,13 @@ func ScanDelayBucket() (string, error) {
 
 			topicSetting := utils.GetTopicSetting(job.Topic)
 			fmt.Println(job.Topic, topicSetting)
+			if job.State != STATE_DELAY {
+				/*将任务id 移出delay bucket*/
+				redis_cli.Send("zrem", DELAY_BUCKET_KEY, job.Jobid)
+				fmt.Println(job.Jobid, "在 delay bucket 中, 但状态却是 ", job.State)
+				continue
+			}
+
 			if job.Tryes >= topicSetting.MaxTryes {
 				fail_num = fail_num + 1
 				redis_cli.Send("MULTI")
@@ -226,6 +233,13 @@ func ScanReserveBucket() (string, error) {
 			if job.Jobid == "" || job.Topic == "" {
 				fmt.Println("获取" + rk["jobid"] + "的任务信息出错了，[ReserveBucket]！！！！！！")
 				dq.logger.Error("获取" + rk["jobid"] + "的任务信息出错了，[ReserveBucket]！！！！！！")
+				continue
+			}
+
+			if job.State != STATE_RESERVE {
+				redis_cli.Do("lrem", RESERVE_BUCKET_KEY, 0, job.Jobid)
+				fmt.Println(job.Jobid, "在 reserved pool 中, 但状态却是 ", job.State)
+				dq.logger.Error(job.Jobid + "在 reserved pool 中, 但状态却是 " + utils.Int2string(job.State))
 				continue
 			}
 			nowtime := time.Now().Unix()

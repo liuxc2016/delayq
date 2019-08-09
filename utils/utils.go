@@ -12,6 +12,10 @@ func String2int(str string) int {
 	return ret
 }
 
+func Int2string(str int) string {
+	return strconv.Itoa(str)
+}
+
 func String2int64(str string) int64 {
 	ret, err := strconv.Atoi(str)
 	if err != nil {
