@@ -23,10 +23,11 @@ func handleSignal() {
 	go func() {
 		sig := <-ch
 		switch sig {
-		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+		case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 			fmt.Println("捕捉到了信号", sig)
 			exitChan <- true
-
+		case syscall.SIGHUP:
+			fmt.Println("捕捉到了信号,但是继续执行", sig)
 		}
 	}()
 }

@@ -226,7 +226,7 @@ func (p *Http) Serve() {
 	port := "9090"
 	p.Srv = &http.Server{Addr: ":" + port, Handler: http.DefaultServeMux}
 
-	fmt.Println("Http Server is Starting on port ", port)
+	fmt.Println("HTT服务已经开启，端口号：", port)
 
 	go func() {
 		err := p.Srv.ListenAndServe()

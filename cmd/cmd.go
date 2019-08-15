@@ -74,12 +74,14 @@ func (p *Cmd) handleSignal() {
 	go func() {
 		sig := <-ch
 		switch sig {
-		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+		case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 			fmt.Println("捕捉到了信号", sig)
 			p.dq.Stop()
 			time.Sleep(5 * time.Second)
 			os.Exit(0)
 		}
+	case case syscall.SIGHUP:
+		fmt.Println("捕捉到了信号,但继续执行", sig)
 	}()
 }
 

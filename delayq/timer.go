@@ -10,10 +10,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-var (
-	joblist_key string
-)
-
 type Job struct {
 	Jobid string `json:"jobid"`
 	Name  string `json:"name"`
@@ -213,7 +209,7 @@ func ScanReserveBucket() (string, error) {
 	if len(job_keys) <= 0 {
 		return "", nil
 	}
-
+	fmt.Println(job_keys)
 	for _, v := range job_keys {
 		//rk, err := redis.Strings(redis_cli.Do("hmget", v, "jobid", "name", "topic", "data", "addtime", "exectime", "ttr", "state"))
 		rk, err := redis.StringMap(redis_cli.Do("HGETALL", GetJobKey(v)))
