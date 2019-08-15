@@ -79,9 +79,10 @@ func (p *Cmd) handleSignal() {
 			p.dq.Stop()
 			time.Sleep(5 * time.Second)
 			os.Exit(0)
+		case syscall.SIGHUP:
+			fmt.Println("捕捉到了信号,但继续执行", sig)
 		}
-	case case syscall.SIGHUP:
-		fmt.Println("捕捉到了信号,但继续执行", sig)
+
 	}()
 }
 
